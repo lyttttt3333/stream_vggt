@@ -91,7 +91,7 @@ def main(args):
 
     batch = create_fake_frames()
     with torch.no_grad():
-        with torch.cuda.amp.autocast(dtype=dtype):
+        with torch.cuda.amp.autocast(dtype = torch.bfloat16):
             with torch.no_grad():
                 results = model.inference(batch)
 
