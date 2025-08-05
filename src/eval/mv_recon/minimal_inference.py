@@ -80,8 +80,8 @@ def get_args_parser():
 
 def main(args):
     add_path_to_dust3r(args.weights)
-    from eval.mv_recon.data import SevenScenes, NRGBD
-    from eval.mv_recon.utils import accuracy, completion
+    #from eval.mv_recon.data import SevenScenes, NRGBD
+    #from eval.mv_recon.utils import accuracy, completion
 
     if args.size == 512:
         resolution = (512, 384)
