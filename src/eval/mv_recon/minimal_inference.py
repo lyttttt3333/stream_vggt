@@ -18,6 +18,40 @@ import uuid
 import json
 from collections import defaultdict
 
+def create_fake_batch(batch_size=2, revisit=1, img_shape=(3, 256, 256)):
+    batch = []
+    for i in range(batch_size):
+        view = {
+            "img": torch.zeros(img_shape, dtype=torch.float32),
+            "idx": [i * 2, i * 2 + 1],
+            "instance": [f"instance_{i}_0", f"instance_{i}_1"],
+            "update": torch.ones(2, dtype=torch.bool),
+            "pseudo_focal": torch.zeros(2, dtype=torch.float32),
+            "depthmap": torch.zeros((256, 256), dtype=torch.float32),
+            "label": torch.zeros(256, 256, dtype=torch.long),
+            "true_shape": (256, 256)  # 非张量的示例
+        }
+        batch.append(view)
+        
+    if revisit > 1:
+        new_views = []
+        for r in range(revisit):
+            for i in range(len(batch)):
+                new_view = deepcopy(batch[i])
+                # 更新索引和实例标识
+                new_view["idx"] = [(r * len(batch) + i) * 2, (r * len(batch) + i) * 2 + 1]
+                new_view["instance"] = [
+                    f"instance_r{r}_i{i}_0", 
+                    f"instance_r{r}_i{i}_1"
+                ]
+                # 如果不是第一次重访且不更新，则设置update为False
+                if r > 0:
+                    new_view["update"] = torch.zeros_like(new_view["update"]).bool()
+                new_views.append(new_view)
+        batch = new_views
+    
+    return batch
+
 def get_args_parser():
     parser = argparse.ArgumentParser("3D Reconstruction evaluation", add_help=False)
     parser.add_argument(
@@ -58,24 +92,6 @@ def main(args):
         # resolution = (518, 336)
     else:
         raise NotImplementedError
-    datasets_all = {
-        "7scenes": SevenScenes(
-            split="test",
-            ROOT="../data/eval/7scenes",
-            resolution=resolution,
-            num_seq=1,
-            full_video=True,
-            kf_every=200,
-        ),  # 20),
-        "NRGBD": NRGBD(
-            split="test",
-            ROOT="../data/eval/neural_rgbd",
-            resolution=resolution,
-            num_seq=1,
-            full_video=True,
-            kf_every=500,
-        ),
-    }
 
     accelerator = Accelerator()
     device = accelerator.device
@@ -146,114 +162,86 @@ def main(args):
                     conf_all = []
                     in_camera1 = None  
 
-                    if model_name == "stream3r" or "VGGT":
-                        revisit = args.revisit
-                        update = not args.freeze
-                        if revisit > 1:
-                            # repeat input for 'revisit' times
-                            new_views = []
-                            for r in range(revisit):
-                                for i in range(len(batch)):
-                                    new_view = deepcopy(batch[i])
-                                    new_view["idx"] = [
-                                        (r * len(batch) + i)
-                                        for _ in range(len(batch[i]["idx"]))
-                                    ]
-                                    new_view["instance"] = [
-                                        str(r * len(batch) + i)
-                                        for _ in range(len(batch[i]["instance"]))
-                                    ]
-                                    if r > 0:
-                                        if not update:
-                                            new_view["update"] = torch.zeros_like(
-                                                batch[i]["update"]
-                                            ).bool()
-                                    new_views.append(new_view)
-                            batch = new_views
-                        dtype = torch.bfloat16 if torch.cuda.get_device_capability()[0] >= 8 else torch.float16
-                        with torch.cuda.amp.autocast(dtype=dtype):
-                            if isinstance(batch, dict) and "img" in batch:
-                                batch["img"] = (batch["img"] + 1.0) / 2.0
-                            elif isinstance(batch, list) and all(isinstance(v, dict) and "img" in v for v in batch):
-                                for view in batch:
-                                    view["img"] = (view["img"] + 1.0) / 2.0
+                    batch = create_fake_batch(batch_size=2, revisit=1, img_shape=(3, 256, 256))
 
-                        with torch.cuda.amp.autocast(dtype=dtype):
-                            with torch.no_grad():
-                                results = model.inference(batch)
+                    with torch.cuda.amp.autocast(dtype=dtype):
+                        with torch.no_grad():
+                            results = model.inference(batch)
 
-                            preds, batch = results.ress, results.views 
+                        print("################")
 
-                            if args.use_proj:
-                                pose_enc = torch.stack([preds[s]["camera_pose"] for s in range(len(preds))], dim=1)
-                                depth_map = torch.stack([preds[s]["depth"] for s in range(len(preds))], dim=1)
-                                depth_conf = torch.stack([preds[s]["depth_conf"] for s in range(len(preds))], dim=1)
-                                extrinsic, intrinsic = pose_encoding_to_extri_intri(pose_enc,
-                                                                                    batch[0]["img"].shape[-2:])
+                        preds, batch = results.ress, results.views 
 
-                                if "DTU" in name_data:
-                                    depth_map = depth_map * 1000.0
-                                    extrinsic[..., :3, 3] *= 1000.0
+                        if args.use_proj:
+                            pose_enc = torch.stack([preds[s]["camera_pose"] for s in range(len(preds))], dim=1)
+                            depth_map = torch.stack([preds[s]["depth"] for s in range(len(preds))], dim=1)
+                            depth_conf = torch.stack([preds[s]["depth_conf"] for s in range(len(preds))], dim=1)
+                            extrinsic, intrinsic = pose_encoding_to_extri_intri(pose_enc,
+                                                                                batch[0]["img"].shape[-2:])
 
-                                point_map_by_unprojection = unproject_depth_map_to_point_map(depth_map.squeeze(0),
-                                                                                                extrinsic.squeeze(0),
-                                                                                                intrinsic.squeeze(0))
-                            valid_length = len(preds) // args.revisit
-                            if args.revisit > 1:
-                                preds = preds[-valid_length:]
-                                batch = batch[-valid_length:]
-                                
+                            if "DTU" in name_data:
+                                depth_map = depth_map * 1000.0
+                                extrinsic[..., :3, 3] *= 1000.0
 
-                        # Evaluation
-                        print(f"Evaluation for {name_data} {data_idx+1}/{len(dataset)}")
-                        gt_pts, pred_pts, gt_factor, pr_factor, masks, monitoring = (
-                            criterion.get_all_pts3d_t(batch, preds)
-                        )
+                            point_map_by_unprojection = unproject_depth_map_to_point_map(depth_map.squeeze(0),
+                                                                                            extrinsic.squeeze(0),
+                                                                                            intrinsic.squeeze(0))
+                        valid_length = len(preds) // args.revisit
+                        if args.revisit > 1:
+                            preds = preds[-valid_length:]
+                            batch = batch[-valid_length:]
+                            
 
-                        in_camera1 = None
-                        pts_all = []
-                        pts_gt_all = []
-                        images_all = []
-                        masks_all = []
-                        conf_all = []
+                    # Evaluation
+                    print(f"Evaluation for {name_data} {data_idx+1}/{len(dataset)}")
+                    gt_pts, pred_pts, gt_factor, pr_factor, masks, monitoring = (
+                        criterion.get_all_pts3d_t(batch, preds)
+                    )
 
-                        for j, view in enumerate(batch):
-                            if in_camera1 is None:
-                                in_camera1 = view["camera_pose"][0].cpu()
+                    in_camera1 = None
+                    pts_all = []
+                    pts_gt_all = []
+                    images_all = []
+                    masks_all = []
+                    conf_all = []
 
-                            image = view["img"].permute(0, 2, 3, 1).cpu().numpy()[0]
-                            mask = view["valid_mask"].cpu().numpy()[0]
+                    for j, view in enumerate(batch):
+                        if in_camera1 is None:
+                            in_camera1 = view["camera_pose"][0].cpu()
 
-                            if args.use_proj:
-                                pts = point_map_by_unprojection[j]
-                                conf = depth_conf[0, j].cpu().data.numpy()
-                            else:
-                                pts = pred_pts[j].cpu().numpy()[0]
-                                conf = preds[j]["conf"].cpu().data.numpy()[0]
+                        image = view["img"].permute(0, 2, 3, 1).cpu().numpy()[0]
+                        mask = view["valid_mask"].cpu().numpy()[0]
 
-                            # mask = mask & (conf > 1.8)
+                        if args.use_proj:
+                            pts = point_map_by_unprojection[j]
+                            conf = depth_conf[0, j].cpu().data.numpy()
+                        else:
+                            pts = pred_pts[j].cpu().numpy()[0]
+                            conf = preds[j]["conf"].cpu().data.numpy()[0]
 
-                            pts_gt = gt_pts[j].detach().cpu().numpy()[0]
+                        # mask = mask & (conf > 1.8)
 
-                            H, W = image.shape[:2]
-                            cx = W // 2
-                            cy = H // 2
-                            l, t = cx - 112, cy - 112
-                            r, b = cx + 112, cy + 112
-                            image = image[t:b, l:r]
-                            mask = mask[t:b, l:r]
-                            pts = pts[t:b, l:r]
-                            pts_gt = pts_gt[t:b, l:r]
+                        pts_gt = gt_pts[j].detach().cpu().numpy()[0]
 
-                            # Align predicted 3D points to the ground truth
-                            # pts = geotrf(in_camera1, pts)
-                            # pts_gt = geotrf(in_camera1, pts_gt)
+                        H, W = image.shape[:2]
+                        cx = W // 2
+                        cy = H // 2
+                        l, t = cx - 112, cy - 112
+                        r, b = cx + 112, cy + 112
+                        image = image[t:b, l:r]
+                        mask = mask[t:b, l:r]
+                        pts = pts[t:b, l:r]
+                        pts_gt = pts_gt[t:b, l:r]
 
-                            images_all.append(image[None, ...])
-                            pts_all.append(pts[None, ...])
-                            pts_gt_all.append(pts_gt[None, ...])
-                            masks_all.append(mask[None, ...])
-                            conf_all.append(conf[None, ...])
+                        # Align predicted 3D points to the ground truth
+                        # pts = geotrf(in_camera1, pts)
+                        # pts_gt = geotrf(in_camera1, pts_gt)
+
+                        images_all.append(image[None, ...])
+                        pts_all.append(pts[None, ...])
+                        pts_gt_all.append(pts_gt[None, ...])
+                        masks_all.append(mask[None, ...])
+                        conf_all.append(conf[None, ...])
 
                     images_all = np.concatenate(images_all, axis=0)
                     pts_all = np.concatenate(pts_all, axis=0)
@@ -471,3 +459,35 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     main(args)
+
+                    # if model_name == "stream3r" or "VGGT":
+                    #     revisit = args.revisit
+                    #     update = not args.freeze
+                    #     if revisit > 1:
+                    #         # repeat input for 'revisit' times
+                    #         new_views = []
+                    #         for r in range(revisit):
+                    #             for i in range(len(batch)):
+                    #                 new_view = deepcopy(batch[i])
+                    #                 new_view["idx"] = [
+                    #                     (r * len(batch) + i)
+                    #                     for _ in range(len(batch[i]["idx"]))
+                    #                 ]
+                    #                 new_view["instance"] = [
+                    #                     str(r * len(batch) + i)
+                    #                     for _ in range(len(batch[i]["instance"]))
+                    #                 ]
+                    #                 if r > 0:
+                    #                     if not update:
+                    #                         new_view["update"] = torch.zeros_like(
+                    #                             batch[i]["update"]
+                    #                         ).bool()
+                    #                 new_views.append(new_view)
+                    #         batch = new_views
+                    #     dtype = torch.bfloat16 if torch.cuda.get_device_capability()[0] >= 8 else torch.float16
+                    #     with torch.cuda.amp.autocast(dtype=dtype):
+                    #         if isinstance(batch, dict) and "img" in batch:
+                    #             batch["img"] = (batch["img"] + 1.0) / 2.0
+                    #         elif isinstance(batch, list) and all(isinstance(v, dict) and "img" in v for v in batch):
+                    #             for view in batch:
+                    #                 view["img"] = (view["img"] + 1.0) / 2.0
