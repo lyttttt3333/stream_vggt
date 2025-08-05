@@ -6,7 +6,7 @@ import time
 import torch
 import argparse
 import numpy as np
-import open3d as o3d
+# import open3d as o3d
 import os.path as osp
 from torch.utils.data import DataLoader
 from add_ckpt_path import add_path_to_dust3r
