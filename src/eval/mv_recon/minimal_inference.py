@@ -89,7 +89,7 @@ def main(args):
         model = model.to("cuda")
     del ckpt
 
-    batch = create_fake_batch(batch_size=2, revisit=1, img_shape=(3, 256, 256))
+    batch = create_fake_frames(batch_size=2, revisit=1, img_shape=(3, 256, 256))
     with torch.no_grad():
         with torch.cuda.amp.autocast(dtype=dtype):
             with torch.no_grad():
