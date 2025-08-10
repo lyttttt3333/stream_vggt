@@ -96,16 +96,16 @@ def main(args):
                 print("#########", batch[0]["img"].dtype)
                 results = model.inference(batch)
 
-            print("################")
+            # print("################")
 
-            preds, batch = results.ress, results.views 
+            # preds, batch = results.ress, results.views 
 
-            if args.use_proj:
-                pose_enc = torch.stack([preds[s]["camera_pose"] for s in range(len(preds))], dim=1)
-                depth_map = torch.stack([preds[s]["depth"] for s in range(len(preds))], dim=1)
-                depth_conf = torch.stack([preds[s]["depth_conf"] for s in range(len(preds))], dim=1)
-                extrinsic, intrinsic = pose_encoding_to_extri_intri(pose_enc,
-                                                                        batch[0]["img"].shape[-2:])
+            # if args.use_proj:
+            #     pose_enc = torch.stack([preds[s]["camera_pose"] for s in range(len(preds))], dim=1)
+            #     depth_map = torch.stack([preds[s]["depth"] for s in range(len(preds))], dim=1)
+            #     depth_conf = torch.stack([preds[s]["depth_conf"] for s in range(len(preds))], dim=1)
+            #     extrinsic, intrinsic = pose_encoding_to_extri_intri(pose_enc,
+            #                                                             batch[0]["img"].shape[-2:])
 
 
 
