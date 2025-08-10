@@ -122,6 +122,9 @@ class StreamVGGT(nn.Module, PyTorchModelHubMixin):
                 aggregated_tokens, patch_start_idx, past_key_values = aggregator_output
             else:
                 aggregated_tokens, patch_start_idx = aggregator_output
+
+            print(aggregated_tokens.shape)
+            assert 0 
             
             with torch.cuda.amp.autocast(enabled=False):
                 if self.camera_head is not None:
