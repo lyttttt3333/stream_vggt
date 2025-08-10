@@ -86,7 +86,7 @@ def main(args):
         ckpt = torch.load(args.weights, map_location=device)
         model.load_state_dict(ckpt, strict=True)
         model.eval()
-        model = model.to("cuda").to(bfloat16)
+        model = model.to("cuda").to(torch.bfloat16)
     del ckpt
 
     batch = create_fake_frames()
