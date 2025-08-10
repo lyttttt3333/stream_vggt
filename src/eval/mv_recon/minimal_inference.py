@@ -90,7 +90,8 @@ def main(args):
     del ckpt
 
     frames = create_fake_frames()
-    past_key_values = [None] * self.aggregator.depth
+    print(model.aggregator.depth)
+    past_key_values = [None] * model.aggregator.depth
     with torch.no_grad():
         with torch.cuda.amp.autocast(dtype = torch.bfloat16):
             with torch.no_grad():
