@@ -103,7 +103,7 @@ class StreamVGGT(nn.Module, PyTorchModelHubMixin):
             return StreamVGGTOutput(ress=ress, views=views)  # [S] [B, C, H, W]
         
     def inference(self, frame, idx, query_points: torch.Tensor = None, past_key_values=None):        
-        images = frame["img"].unsqueeze(0) 
+        images = frame#.unsqueeze(0) 
         aggregator_output = self.aggregator(
             images, 
             past_key_values=past_key_values,
@@ -124,43 +124,3 @@ class StreamVGGT(nn.Module, PyTorchModelHubMixin):
         state = state.view(batch_size, -1, last_dim)
         
         return state, patch_start_idx, past_key_values
-
-    def export_memory(self, frames, query_points: torch.Tensor = None, past_key_values=None):        
-        past_key_values = [None] * self.aggregator.depth
-        past_key_values_camera = [None] * self.camera_head.trunk_depth
-        
-        all_ress = []
-        processed_frames = []
-
-        all_features = {}
-        all_aggregated_tokens = {}
-        all_depth_features = {}
-        all_pts3d_features = {}
-
-        for i, frame in enumerate(frames):
-
-            images = frame["img"].unsqueeze(0) 
-            
-            aggregator_output = self.aggregator(
-                images, 
-                past_key_values=past_key_values,
-                use_cache=True, 
-                past_frame_idx=i
-            )
-            
-            if isinstance(aggregator_output, tuple) and len(aggregator_output) == 3:
-                aggregated_tokens, patch_start_idx, past_key_values = aggregator_output
-            else:
-                aggregated_tokens, patch_start_idx = aggregator_output
-            
-            features = {}
-
-            aggregated_tokens = [aggregated_tokens[idx] for idx in [4, 11, 17, 23]]
-            aggregated_tokens = torch.cat(aggregated_tokens, dim=1).detach().cpu()
-            
-            all_aggregated_tokens[i] = aggregated_tokens.detach()[:, :, :, -1024:]
-
-        all_aggregated_tokens_cat = torch.cat(list(all_aggregated_tokens.values()), dim=0).cpu().numpy()
-        del all_aggregated_tokens
-            
-        return all_aggregated_tokens_cat
