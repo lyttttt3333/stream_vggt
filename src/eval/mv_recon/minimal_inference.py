@@ -18,7 +18,7 @@ import uuid
 import json
 from collections import defaultdict
 
-def create_fake_frames(num_frames=3, img_channels=3, img_height=518, img_width=392):
+def create_fake_frames(num_frames=3, img_channels=3, img_height=485, img_width=832):
     images = torch.zeros((num_frames, img_channels, img_height, img_width), dtype=torch.bfloat16).to("cuda")
     
     frames = []
@@ -59,8 +59,6 @@ def get_args_parser():
 
 def main(args):
     add_path_to_dust3r(args.weights)
-    #from eval.mv_recon.data import SevenScenes, NRGBD
-    #from eval.mv_recon.utils import accuracy, completion
 
     if args.size == 512:
         resolution = (512, 384)
@@ -90,7 +88,6 @@ def main(args):
     del ckpt
 
     frames = create_fake_frames()
-    print(model.aggregator.depth)
     past_key_values = [None] * model.aggregator.depth
     with torch.no_grad():
         with torch.cuda.amp.autocast(dtype = torch.bfloat16):
