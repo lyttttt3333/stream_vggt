@@ -123,7 +123,8 @@ class StreamVGGT(nn.Module, PyTorchModelHubMixin):
             else:
                 aggregated_tokens, patch_start_idx = aggregator_output
 
-            print(aggregated_tokens)
+            print(len(aggregated_tokens))
+            print(aggregated_tokens[0].shape)
             assert 0 
             
             with torch.cuda.amp.autocast(enabled=False):
