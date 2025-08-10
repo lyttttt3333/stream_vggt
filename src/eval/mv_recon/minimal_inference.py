@@ -18,7 +18,7 @@ import uuid
 import json
 from collections import defaultdict
 
-def create_fake_frames(num_frames=3, img_channels=3, img_height=485, img_width=832):
+def create_fake_frames(num_frames=3, img_channels=3, img_height=518, img_width=392):
     images = torch.zeros((num_frames, img_channels, img_height, img_width), dtype=torch.bfloat16).to("cuda")
     
     frames = []
