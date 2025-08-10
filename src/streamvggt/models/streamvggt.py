@@ -121,7 +121,7 @@ class StreamVGGT(nn.Module, PyTorchModelHubMixin):
         print(len(aggregated_tokens))
         print(aggregated_tokens[0].shape)
         
-        return aggregated_tokens, patch_start_idx, past_key_values
+        return aggregated_tokens[-1], patch_start_idx, past_key_values
 
     def export_memory(self, frames, query_points: torch.Tensor = None, past_key_values=None):        
         past_key_values = [None] * self.aggregator.depth
