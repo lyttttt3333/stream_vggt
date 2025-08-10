@@ -77,8 +77,8 @@ def main(args):
         from dust3r.utils.geometry import geotrf
         from copy import deepcopy
         model = StreamVGGT()
-        ckpt = torch.load(args.weights, map_location=device, strict=False)
-        model.load_state_dict(ckpt, strict=True)
+        ckpt = torch.load(args.weights, map_location=device)
+        model.load_state_dict(ckpt, strict=False)
         model.eval()
         model = model.to("cuda").to(torch.bfloat16)
     del ckpt
