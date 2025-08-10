@@ -96,6 +96,7 @@ def main(args):
                 print("#########", batch[0]["img"].dtype)
                 results = model.export_memory(batch)
 
+    print(results.shape)
             # print("################")
 
             # preds, batch = results.ress, results.views 
