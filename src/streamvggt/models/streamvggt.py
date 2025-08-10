@@ -102,81 +102,26 @@ class StreamVGGT(nn.Module, PyTorchModelHubMixin):
                 ress.append(res)
             return StreamVGGTOutput(ress=ress, views=views)  # [S] [B, C, H, W]
         
-    def inference(self, frames, query_points: torch.Tensor = None, past_key_values=None):        
-        past_key_values = [None] * self.aggregator.depth
-        past_key_values_camera = [None] * self.camera_head.trunk_depth
+    def inference(self, frame, idx, query_points: torch.Tensor = None, past_key_values=None):        
+        images = frame["img"].unsqueeze(0) 
+        aggregator_output = self.aggregator(
+            images, 
+            past_key_values=past_key_values,
+            use_cache=True, 
+            past_frame_idx=idx
+        )
         
-        all_ress = []
-        processed_frames = []
+        if isinstance(aggregator_output, tuple) and len(aggregator_output) == 3:
+            print("3 items")
+            aggregated_tokens, patch_start_idx, past_key_values = aggregator_output
+        else:
+            print("2 items")
+            aggregated_tokens, patch_start_idx = aggregator_output
 
-        for i, frame in enumerate(frames):
-            images = frame["img"].unsqueeze(0) 
-            aggregator_output = self.aggregator(
-                images, 
-                past_key_values=past_key_values,
-                use_cache=True, 
-                past_frame_idx=i
-            )
-            
-            if isinstance(aggregator_output, tuple) and len(aggregator_output) == 3:
-                print("3 items")
-                aggregated_tokens, patch_start_idx, past_key_values = aggregator_output
-            else:
-                print("2 items")
-                aggregated_tokens, patch_start_idx = aggregator_output
-
-            print(len(aggregated_tokens))
-            print(aggregated_tokens[0].shape)
+        print(len(aggregated_tokens))
+        print(aggregated_tokens[0].shape)
         
-        return None
-            
-        #     with torch.cuda.amp.autocast(enabled=False):
-        #         if self.camera_head is not None:
-        #             pose_enc, past_key_values_camera = self.camera_head(aggregated_tokens, past_key_values_camera=past_key_values_camera, use_cache=True)
-        #             pose_enc = pose_enc[-1]
-        #             camera_pose = pose_enc[:, 0, :]
-
-        #         if self.depth_head is not None:
-        #             depth, depth_conf = self.depth_head(
-        #                 aggregated_tokens, images=images, patch_start_idx=patch_start_idx
-        #             )
-        #             depth = depth[:, 0] 
-        #             depth_conf = depth_conf[:, 0]
-                
-        #         if self.point_head is not None:
-        #             pts3d, pts3d_conf = self.point_head(
-        #                 aggregated_tokens, images=images, patch_start_idx=patch_start_idx
-        #             )
-        #             pts3d = pts3d[:, 0] 
-        #             pts3d_conf = pts3d_conf[:, 0]
-
-        #         if self.track_head is not None and query_points is not None:
-        #             track_list, vis, conf = self.track_head(
-        #                 aggregated_tokens, images=images, patch_start_idx=patch_start_idx, query_points=query_points
-        #         )
-        #             track = track_list[-1][:, 0]  
-        #             query_points = track
-        #             vis = vis[:, 0]
-        #             track_conf = conf[:, 0]
-
-        #     all_ress.append({
-        #         'pts3d_in_other_view': pts3d,
-        #         'conf': pts3d_conf,
-        #         'depth': depth,
-        #         'depth_conf': depth_conf,
-        #         'camera_pose': camera_pose,
-        #         **({'valid_mask': frame["valid_mask"]}
-        #             if 'valid_mask' in frame else {}),  
-
-        #         **({'track': track, 
-        #             'vis': vis,  
-        #             'track_conf': track_conf}
-        #         if query_points is not None else {})
-        #     })
-        #     processed_frames.append(frame)
-        
-        # output = StreamVGGTOutput(ress=all_ress, views=processed_frames)
-        # return output
+        return aggregated_tokens, patch_start_idx, past_key_values
 
     def export_memory(self, frames, query_points: torch.Tensor = None, past_key_values=None):        
         past_key_values = [None] * self.aggregator.depth
@@ -215,8 +160,5 @@ class StreamVGGT(nn.Module, PyTorchModelHubMixin):
 
         all_aggregated_tokens_cat = torch.cat(list(all_aggregated_tokens.values()), dim=0).cpu().numpy()
         del all_aggregated_tokens
-        
-        # all_pts3d_features_cat = torch.cat(list(all_pts3d_features.values()), dim=0).cpu().numpy()
-        # del all_pts3d_features
             
         return all_aggregated_tokens_cat

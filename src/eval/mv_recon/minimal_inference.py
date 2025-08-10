@@ -89,14 +89,14 @@ def main(args):
         model = model.to("cuda").to(torch.bfloat16)
     del ckpt
 
-    batch = create_fake_frames()
+    frames = create_fake_frames()
+    past_key_values = [None] * self.aggregator.depth
     with torch.no_grad():
         with torch.cuda.amp.autocast(dtype = torch.bfloat16):
             with torch.no_grad():
                 # results = model.export_memory(batch)
-                results = model.inference(batch)
-
-    print(results.shape)
+                for i, frame in enumerate(frames):
+                    aggregated_tokens, patch_start_idx, past_key_values = model.inference(frame, i, past_key_values=past_key_values)
 
 
 if __name__ == "__main__":
