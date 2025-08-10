@@ -103,7 +103,7 @@ class StreamVGGT(nn.Module, PyTorchModelHubMixin):
             return StreamVGGTOutput(ress=ress, views=views)  # [S] [B, C, H, W]
         
     def inference(self, frame, idx, query_points: torch.Tensor = None, past_key_values=None):        
-        images = frame#.unsqueeze(0) 
+        images = frame.unsqueeze(0) 
         aggregator_output = self.aggregator(
             images, 
             past_key_values=past_key_values,
