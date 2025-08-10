@@ -90,6 +90,7 @@ def main(args):
             with torch.no_grad():
                 for i, frame in enumerate(frames):
                     aggregated_token, patch_start_idx, past_key_values = model.inference(frame, i, past_key_values=past_key_values)
+                    print(aggregated_token.shape)
 
 
 if __name__ == "__main__":
