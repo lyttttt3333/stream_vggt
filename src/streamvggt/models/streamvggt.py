@@ -177,3 +177,60 @@ class StreamVGGT(nn.Module, PyTorchModelHubMixin):
         
         # output = StreamVGGTOutput(ress=all_ress, views=processed_frames)
         # return output
+
+    def export_memory(self, frames, query_points: torch.Tensor = None, past_key_values=None):        
+        past_key_values = [None] * self.aggregator.depth
+        past_key_values_camera = [None] * self.camera_head.trunk_depth
+        
+        all_ress = []
+        processed_frames = []
+
+        all_features = {}
+        all_aggregated_tokens = {}
+        all_depth_features = {}
+        all_pts3d_features = {}
+
+        for i, frame in enumerate(frames):
+
+            images = frame["img"].unsqueeze(0) 
+            
+            aggregator_output = self.aggregator(
+                images, 
+                past_key_values=past_key_values,
+                use_cache=True, 
+                past_frame_idx=i
+            )
+            
+            if isinstance(aggregator_output, tuple) and len(aggregator_output) == 3:
+                aggregated_tokens, patch_start_idx, past_key_values = aggregator_output
+            else:
+                aggregated_tokens, patch_start_idx = aggregator_output
+            
+            features = {}
+
+            # with torch.cuda.amp.autocast(enabled=False):
+
+            #     if self.depth_head is not None:
+            #         depth_feature = self.depth_head(
+            #             aggregated_tokens, images=images, patch_start_idx=patch_start_idx
+            #         )[:, 0] # 1, 128, 518, 518]
+
+            #     if self.point_head is not None:
+            #         pts3d_feature = self.point_head(
+            #             aggregated_tokens, images=images, patch_start_idx=patch_start_idx
+            #         )[:, 0] 
+
+            aggregated_tokens = [aggregated_tokens[idx] for idx in [4, 11, 17, 23]]
+            aggregated_tokens = torch.cat(aggregated_tokens, dim=1).detach().cpu()
+            
+            all_aggregated_tokens[i] = aggregated_tokens.detach()[:, :, :, -1024:]
+            # all_depth_features[i] = depth_feature.detach()
+            # all_pts3d_features[i] = pts3d_feature.detach()
+
+        all_aggregated_tokens_cat = torch.cat(list(all_aggregated_tokens.values()), dim=0).cpu().numpy()
+        del all_aggregated_tokens
+        
+        # all_pts3d_features_cat = torch.cat(list(all_pts3d_features.values()), dim=0).cpu().numpy()
+        # del all_pts3d_features
+            
+        return all_aggregated_tokens_cat

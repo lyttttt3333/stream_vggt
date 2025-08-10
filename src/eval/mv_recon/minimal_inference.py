@@ -94,7 +94,7 @@ def main(args):
         with torch.cuda.amp.autocast(dtype = torch.bfloat16):
             with torch.no_grad():
                 print("#########", batch[0]["img"].dtype)
-                results = model.inference(batch)
+                results = model.export_memory(batch)
 
             # print("################")
 
