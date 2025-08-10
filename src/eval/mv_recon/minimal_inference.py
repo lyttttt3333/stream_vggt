@@ -92,10 +92,9 @@ def main(args):
     with torch.no_grad():
         with torch.cuda.amp.autocast(dtype = torch.bfloat16):
             with torch.no_grad():
-                # results = model.export_memory(batch)
                 for i, frame in enumerate(frames):
                     aggregated_token, patch_start_idx, past_key_values = model.inference(frame, i, past_key_values=past_key_values)
-                    print(aggregated_token.shape)
+                    print(past_key_values)
 
 
 if __name__ == "__main__":
