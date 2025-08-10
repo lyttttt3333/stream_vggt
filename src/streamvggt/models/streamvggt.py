@@ -208,24 +208,10 @@ class StreamVGGT(nn.Module, PyTorchModelHubMixin):
             
             features = {}
 
-            # with torch.cuda.amp.autocast(enabled=False):
-
-            #     if self.depth_head is not None:
-            #         depth_feature = self.depth_head(
-            #             aggregated_tokens, images=images, patch_start_idx=patch_start_idx
-            #         )[:, 0] # 1, 128, 518, 518]
-
-            #     if self.point_head is not None:
-            #         pts3d_feature = self.point_head(
-            #             aggregated_tokens, images=images, patch_start_idx=patch_start_idx
-            #         )[:, 0] 
-
             aggregated_tokens = [aggregated_tokens[idx] for idx in [4, 11, 17, 23]]
             aggregated_tokens = torch.cat(aggregated_tokens, dim=1).detach().cpu()
             
             all_aggregated_tokens[i] = aggregated_tokens.detach()[:, :, :, -1024:]
-            # all_depth_features[i] = depth_feature.detach()
-            # all_pts3d_features[i] = pts3d_feature.detach()
 
         all_aggregated_tokens_cat = torch.cat(list(all_aggregated_tokens.values()), dim=0).cpu().numpy()
         del all_aggregated_tokens

@@ -93,40 +93,10 @@ def main(args):
     with torch.no_grad():
         with torch.cuda.amp.autocast(dtype = torch.bfloat16):
             with torch.no_grad():
-                print("#########", batch[0]["img"].dtype)
-                results = model.export_memory(batch)
+                # results = model.export_memory(batch)
+                results = model.inference(batch)
 
     print(results.shape)
-            # print("################")
-
-            # preds, batch = results.ress, results.views 
-
-            # if args.use_proj:
-            #     pose_enc = torch.stack([preds[s]["camera_pose"] for s in range(len(preds))], dim=1)
-            #     depth_map = torch.stack([preds[s]["depth"] for s in range(len(preds))], dim=1)
-            #     depth_conf = torch.stack([preds[s]["depth_conf"] for s in range(len(preds))], dim=1)
-            #     extrinsic, intrinsic = pose_encoding_to_extri_intri(pose_enc,
-            #                                                             batch[0]["img"].shape[-2:])
-
-
-
-
-from collections import defaultdict
-import re
-
-pattern = r"""
-    Idx:\s*(?P<scene_id>[^,]+),\s*
-    Acc:\s*(?P<acc>[^,]+),\s*
-    Comp:\s*(?P<comp>[^,]+),\s*
-    NC1:\s*(?P<nc1>[^,]+),\s*
-    NC2:\s*(?P<nc2>[^,]+)\s*-\s*
-    Acc_med:\s*(?P<acc_med>[^,]+),\s*
-    Compc_med:\s*(?P<comp_med>[^,]+),\s*
-    NC1c_med:\s*(?P<nc1_med>[^,]+),\s*
-    NC2c_med:\s*(?P<nc2_med>[^,]+)
-"""
-
-regex = re.compile(pattern, re.VERBOSE)
 
 
 if __name__ == "__main__":
@@ -134,35 +104,3 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     main(args)
-
-                    # if model_name == "stream3r" or "VGGT":
-                    #     revisit = args.revisit
-                    #     update = not args.freeze
-                    #     if revisit > 1:
-                    #         # repeat input for 'revisit' times
-                    #         new_views = []
-                    #         for r in range(revisit):
-                    #             for i in range(len(batch)):
-                    #                 new_view = deepcopy(batch[i])
-                    #                 new_view["idx"] = [
-                    #                     (r * len(batch) + i)
-                    #                     for _ in range(len(batch[i]["idx"]))
-                    #                 ]
-                    #                 new_view["instance"] = [
-                    #                     str(r * len(batch) + i)
-                    #                     for _ in range(len(batch[i]["instance"]))
-                    #                 ]
-                    #                 if r > 0:
-                    #                     if not update:
-                    #                         new_view["update"] = torch.zeros_like(
-                    #                             batch[i]["update"]
-                    #                         ).bool()
-                    #                 new_views.append(new_view)
-                    #         batch = new_views
-                    #     dtype = torch.bfloat16 if torch.cuda.get_device_capability()[0] >= 8 else torch.float16
-                    #     with torch.cuda.amp.autocast(dtype=dtype):
-                    #         if isinstance(batch, dict) and "img" in batch:
-                    #             batch["img"] = (batch["img"] + 1.0) / 2.0
-                    #         elif isinstance(batch, list) and all(isinstance(v, dict) and "img" in v for v in batch):
-                    #             for view in batch:
-                    #                 view["img"] = (view["img"] + 1.0) / 2.0
