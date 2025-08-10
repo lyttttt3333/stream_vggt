@@ -117,9 +117,6 @@ class StreamVGGT(nn.Module, PyTorchModelHubMixin):
         else:
             print("2 items")
             aggregated_tokens, patch_start_idx = aggregator_output
-
-        print(len(aggregated_tokens))
-        print(aggregated_tokens[0].shape)
         
         return aggregated_tokens[-1], patch_start_idx, past_key_values
 
