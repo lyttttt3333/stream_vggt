@@ -19,7 +19,7 @@ import json
 from collections import defaultdict
 
 def create_fake_frames(num_frames=4, img_channels=3, img_height=518, img_width=392):
-    images = torch.zeros((num_frames, img_channels, img_height, img_width), dtype=torch.bfloat16)
+    images = torch.zeros((num_frames, img_channels, img_height, img_width), dtype=torch.bfloat16).to("cuda")
     
     frames = []
     for i in range(images.shape[0]):
