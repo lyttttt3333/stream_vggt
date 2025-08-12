@@ -1,7 +1,6 @@
 #!/bin/bash
 
 set -e
-workdir='..'
 model_name='StreamVGGT'
 ckpt_name='checkpoints'
 model_weights="/lustre/fsw/portfolios/av/users/shiyil/jfxiao/StreamVGGT/ckpt/${ckpt_name}.pth"
